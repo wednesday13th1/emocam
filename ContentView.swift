@@ -15,7 +15,28 @@ struct ContentView: View {
     @State var selectedImage: Image? = nil
     
     var body: some View {
-        VStack {
+        VStack (spacing: 25) {
+            Rectangle()
+                .fill(Color.black)
+                .frame(width: 300, height: 400)
+                .overlay {
+                    if let displayImage = selectedImage {
+                        displayImage
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 300, height: 400)
+                            .clipped()
+                    } else {
+                        Image(systemName: "photo")
+                            .font(.largeTitle)
+                            .foregroundStyle(.white)
+                            .padding(20)
+                            .background(Color.gray.opacity(0.7))
+                            .clipShape(.circle)
+                    }
+                }
+            
+            
             Spacer()
             imageWithFrame
             Spacer()
@@ -58,6 +79,8 @@ struct ContentView: View {
                             .background(Color.gray.opacity(0.7))
                             .clipShape(.circle)
                     }
+                    Text(text)
+                    
                 }
 //                clear photopicker
                 PhotosPicker(selection: $selectedItem, matching: .images, photoLibrary: .shared()){
