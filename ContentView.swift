@@ -35,8 +35,9 @@ struct ContentView: View {
                     if let displayImage = selectedImage {
                         displayImage
                             .resizable()
-                            .scaledToFit()
-                            .padding(20)
+                            .scaledToFill()
+                            .frame(width: 300, height: 400)
+                            .clipped()
                     }
                     //                photo icon circle and grey
                     else {
@@ -56,18 +57,20 @@ struct ContentView: View {
                     
             }
         }
-    }
+    
     private func loadImage() {
     guard let item = selectedItem else { return }
-    item.loadTransferable(type: Data.self)
-    switch result {
-    case.success(let data):
-        if let data = data, let uiImage = UIImage(data: data) {
-            selectedImage = Image(uiImage: UIImage)
-        } else {
+    item.loadTransferable(type: Data.self) {result in
+        switch result {
+        case .success(let data):
+            if let data = data, let uiImage = UIImage(data: data) {
+                selectedImage = Image(uiImage: uiImage)
+            } else {
+            }
+        case.failure(let error):
+            print("failed to get Image: \(error.localizedDescription)")
         }
-    case.failure(let error):
-        print("failed to get Image: \(error.localizedDescription)")
+        }
     }
 }
 
