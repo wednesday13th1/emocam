@@ -45,8 +45,8 @@ struct ContentView: View {
                 .background(Color.gray.opacity(0.1))
                 .clipShape(.rect(.cornerRadius: 10))
                 .padding(.bottom, 8)
-                
         }
+        
         .padding(.horizontal)
         .onChange(of: selectedItem, initial: true) {
             loadImage() //image loading function
