@@ -10,41 +10,14 @@ import PhotosUI
 
 struct ContentView: View {
 //    setting up variables for selected image
-    @State private var text:String = ""
     @State var selectedItem: PhotosPickerItem?
     @State var selectedImage: Image? = nil
     
     var body: some View {
         VStack (spacing: 25) {
-            Rectangle()
-                .fill(Color.black)
-                .frame(width: 300, height: 400)
-                .overlay {
-                    if let displayImage = selectedImage {
-                        displayImage
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 300, height: 400)
-                            .clipped()
-                    } else {
-                        Image(systemName: "photo")
-                            .font(.largeTitle)
-                            .foregroundStyle(.white)
-                            .padding(20)
-                            .background(Color.gray.opacity(0.7))
-                            .clipShape(.circle)
-                    }
-                }
-            
-            
             Spacer()
             imageWithFrame
             Spacer()
-            TextField("fill in the text", text: $text)
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .clipShape(.rect(.cornerRadius: 10))
-                .padding(.bottom, 8)
         }
         
         .padding(.horizontal)
@@ -79,7 +52,6 @@ struct ContentView: View {
                             .background(Color.gray.opacity(0.7))
                             .clipShape(.circle)
                     }
-                    Text(text)
                     
                 }
 //                clear photopicker
