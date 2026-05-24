@@ -111,53 +111,59 @@ struct ContentView: View {
                                 color: selectedColor
                             )
                         )
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: frameWidth, height: frameHeight)
-                            .scaleEffect(scale)
-                            .offset(offset)
-                            .clipped()
-                            .gesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        offset = CGSize(
-                                            width: lastOffset.width + value.translation.width,
-                                            height: lastOffset.height + value.translation.height
-                                        )
-                                    }
-                                    .onEnded { _ in
-                                        lastOffset = offset
-                                    }
-                            )
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: frameWidth, height: frameHeight)
+                        .scaleEffect(scale)
+                        .offset(offset)
+                        .clipped()
+                        .gesture(
+                            MagnificationGesture()
+                                .onChanged { value in
+                                    let newScale = lastScale * value
+                                    scale = min(max(newScale, 0.5), 5.0)
+                                }
+                                .onEnded { _ in lastScale = scale }
+                        )
                         
                     }
                 }
-                HStack {
-                    ForEach(filterColors, id: \.name) { item in
-                        Button(action: { selectedFilter = item.name }) {
-                            Circle()
-                            .fill(Color(uiColor: item.color ?? .clear))
-                            .frame(width: 34, height: 34)
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        selectedFilter == item.name ? Color.blue : Color.gray.opacity(0.3),
-                                        lineWidth: 2
-                                    )
-                            )
+
+                VStack(spacing: 8) {
+                    Text(selectedFilter)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 20) {
+                            ForEach(filterColors, id: \.name) { item in
+                                Button(action: { selectedFilter = item.name }) {
+                                    VStack(spacing: 4) {
+                                        Circle()
+                                            .fill(Color(uiColor: item.color ?? .lightGray))
+                                            .frame(width: 34, height: 34)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(
+                                                        selectedFilter == item.name ? Color.blue : Color.gray.opacity(0.3),
+                                                        lineWidth: 2
+                                                    )
+                                            )
+
+                                        Text(item.name)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
                         }
+                        .padding(.horizontal)
                     }
                 }
+                .padding(.top, 10)
             }
-            .padding(.horizontal)
-            .padding(.top, 10)
-            
-            Text(selectedFilter)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
-
     private func applyColorFilter(
         to image: UIImage,
         color: UIColor?
@@ -254,19 +260,6 @@ class CustomFilter: CIFilter {
             filter?.setValue(1.8, forKey: kCIInputSaturationKey)
             filter?.setValue(0.05, forKey: kCIInputBrightnessKey)
             filter?.setValue(1.25, forKey: kCIInputContrastKey)
-
-        case "Warm":
-            filter = CIFilter(name: "CISepiaTone")
-            filter?.setValue(ciImage, forKey: kCIInputImageKey)
-            filter?.setValue(0.35, forKey: kCIInputIntensityKey)
-
-        case "Cool":
-            filter = CIFilter(name: "CIPhotoEffectProcess")
-            filter?.setValue(ciImage, forKey: kCIInputImageKey)
-
-        case "Mono":
-            filter = CIFilter(name: "CIPhotoEffectMono")
-            filter?.setValue(ciImage, forKey: kCIInputImageKey)
 
         default:
             return image
