@@ -2,13 +2,14 @@
 //  ContentView.swift
 //  emocam
 //
-//  Created by 井上　希稟 on 2026/05/22.
+//  Created by XXX on 2026/05/22.
 //
 
 import SwiftUI
 import PhotosUI
 import UIKit
 import CoreImage
+import Mantis
 
 class UIImageViewerView: UIScrollView, UIScrollViewDelegate {
     private let imageView = UIImageView()
@@ -58,6 +59,7 @@ struct ContentView: View {
     @State private var lastFrameScale: CGFloat = 1.0
     @State private var intensity: CGFloat = 0.1
     @State private var selectedFilter: String = "no filter"
+    @State private var isCropViewShowing = false
     
     private let filterColors: [(name: String, color: UIColor?)] = [
         ("no filter", nil),
@@ -78,92 +80,116 @@ struct ContentView: View {
             imageWithFrame
 
             PhotosPicker(selection: $selectedItem, matching: .images) {
-                Text("Choose Photo")
+                Text("Choose Image")
                     .padding()
-                    .background(.blue)
-                    .foregroundStyle(.white)
+                    .background(.clear)
+                    .foregroundStyle(.black)
                     .clipShape(.capsule)
             }
+
+            Button("Crop Image") {
+                isCropViewShowing = true
+            }
+            .padding()
+            .background(selectedUIImage == nil ? .gray : .blue)
+            .foregroundStyle(.black)
+            .clipShape(.capsule)
+            .disabled(selectedUIImage == nil)
         }
         .padding()
         .onChange(of: selectedItem) {
             loadImage()
         }
+        .fullScreenCover(isPresented: $isCropViewShowing) {
+            if let _ = selectedUIImage {
+                ImageCropper(
+                    image: $selectedUIImage,
+                    isCropViewShowing: $isCropViewShowing
+                )
+                .ignoresSafeArea()
+            }
+        }
     }
     
     //    setting up frame
     var imageWithFrame: some View {
-        VStack {
+        VStack(spacing: 14) {
             ZStack {
                 Rectangle()
                     .fill(.white)
                     .frame(width: 350 * frameScale, height: 520 * frameScale)
                     .shadow(radius: 10)
-                
+               
                 Rectangle()
                     .fill(.white)
                     .frame(width: frameWidth, height: frameHeight)
+
                 if let uiImage = selectedUIImage {
-                    ZStack {
-                        Image(
-                            uiImage: applyColorFilter(
-                                to: uiImage,
-                                color: selectedColor
-                            )
+                    Image(
+                        uiImage: applyColorFilter(
+                            to: uiImage,
+                            color: selectedColor
                         )
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: frameWidth, height: frameHeight)
-                        .scaleEffect(scale)
-                        .offset(offset)
-                        .clipped()
-                        .gesture(
-                            MagnificationGesture()
-                                .onChanged { value in
-                                    let newScale = lastScale * value
-                                    scale = min(max(newScale, 0.5), 5.0)
-                                }
-                                .onEnded { _ in lastScale = scale }
-                        )
-                        
-                    }
+                    )
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: frameWidth, height: frameHeight)
+                    .scaleEffect(scale)
+                    .offset(offset)
+                    .clipped()
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                let newScale = lastScale * value
+                                scale = min(max(newScale, 0.5), 5.0)
+                            }
+                            .onEnded { _ in
+                                lastScale = scale
+                            }
+                    )
                 }
+            }
 
-                VStack(spacing: 8) {
-                    Text(selectedFilter)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            // filter picker under the frame
+            VStack(spacing: 8) {
+                Text(selectedFilter)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 20) {
-                            ForEach(filterColors, id: \.name) { item in
-                                Button(action: { selectedFilter = item.name }) {
-                                    VStack(spacing: 4) {
-                                        Circle()
-                                            .fill(Color(uiColor: item.color ?? .lightGray))
-                                            .frame(width: 34, height: 34)
-                                            .overlay(
-                                                Circle()
-                                                    .stroke(
-                                                        selectedFilter == item.name ? Color.blue : Color.gray.opacity(0.3),
-                                                        lineWidth: 2
-                                                    )
-                                            )
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 20) {
+                        ForEach(filterColors, id: \.name) { item in
+                            Button(action: {
+                                selectedFilter = item.name
+                            }) {
+                                VStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color(uiColor: item.color ?? .lightGray))
+                                        .frame(width: 34, height: 34)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(
+                                                    selectedFilter == item.name
+                                                    ? Color.blue
+                                                    : Color.gray.opacity(0.3),
+                                                    lineWidth: 2
+                                                )
+                                        )
 
-                                        Text(item.name)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                                    Text(item.name)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                         }
-                        .padding(.horizontal)
                     }
+                    .padding(.horizontal)
                 }
-                .padding(.top, 10)
             }
+            .padding(.top, 10)
         }
     }
+
     private func applyColorFilter(
         to image: UIImage,
         color: UIColor?
@@ -172,7 +198,9 @@ struct ContentView: View {
             return image
         }
 
-        guard let ciImage = CIImage(image: image) else {
+        let normalizedImage = image.normalizedForEditing()
+
+        guard let ciImage = CIImage(image: normalizedImage) else {
             return image
         }
 
@@ -199,7 +227,11 @@ struct ContentView: View {
             return image
         }
 
-        return UIImage(cgImage: cgImage)
+        return UIImage(
+            cgImage: cgImage,
+            scale: normalizedImage.scale,
+            orientation: .up
+        )
     }
 
     private func loadImage() {
@@ -210,7 +242,12 @@ struct ContentView: View {
             case .success(let data):
                 if let data = data, let uiImage = UIImage(data: data) {
                     DispatchQueue.main.async {
-                        selectedUIImage = uiImage
+                        selectedUIImage = uiImage.normalizedForEditing()
+                        selectedFilter = "no filter"
+                        scale = 1.0
+                        lastScale = 1.0
+                        offset = .zero
+                        lastOffset = .zero
                     }
                 }
             case .failure(let error):
@@ -220,83 +257,6 @@ struct ContentView: View {
     }
 }
 
-class CustomFilter: CIFilter {
-    var kernel: CIKernel!
-    var inputImage: CIImage?
-
-    override init() {
-        super.init()
-        self.kernel = createKernel()
-    }
-
-    required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
-        self.kernel = createKernel()
-    }
-
-    override var outputImage: CIImage? {
-        guard let inputImage = inputImage else { return nil }
-
-        let dod = inputImage.extent.insetBy(dx: -1, dy: -1)
-        let args = [inputImage]
-
-        return kernel.apply(
-            extent: dod,
-            roiCallback: { index, rect in
-                return rect.insetBy(dx: -1, dy: -1)
-            },
-            arguments: args
-        )
-    }
-    func applyColorFilter(to image: UIImage, filterName: String) -> UIImage {
-        guard let ciImage = CIImage(image: image) else { return image }
-
-        let filter: CIFilter?
-
-        switch filterName {
-        case "Vivid":
-            filter = CIFilter(name: "CIColorControls")
-            filter?.setValue(ciImage, forKey: kCIInputImageKey)
-            filter?.setValue(1.8, forKey: kCIInputSaturationKey)
-            filter?.setValue(0.05, forKey: kCIInputBrightnessKey)
-            filter?.setValue(1.25, forKey: kCIInputContrastKey)
-
-        default:
-            return image
-        }
-
-        guard let outputImage = filter?.outputImage else { return image }
-
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
-            return image
-        }
-
-        return UIImage(cgImage: cgImage)
-    }
-
-    private func createKernel() -> CIKernel {
-        let kernelString =
-        """
-        kernel vec4 RGB_to_GBR(sampler source_image)
-        {
-            vec4 originalColor, twistedColor;
-            originalColor = sample(source_image, samplerCoord(source_image));
-            twistedColor.r = originalColor.g;
-            twistedColor.g = originalColor.b;
-            twistedColor.b = originalColor.r;
-            twistedColor.a = originalColor.a;
-            return twistedColor;
-        }
-        """
-
-        guard let kernel = CIKernel(source: kernelString) else {
-            fatalError("Failed to create kernel")
-        }
-
-        return kernel
-    }
-}
 struct ImageViewer: UIViewRepresentable {
     let imageName: String
     
@@ -307,6 +267,80 @@ struct ImageViewer: UIViewRepresentable {
     
     func updateUIView(_ uiView: UIImageViewerView, context: Context) {}
 }
+
+struct ImageCropper: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Binding var isCropViewShowing: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeUIViewController(context: Context) -> CropViewController {
+        var config = Mantis.Config()
+        config.cropShapeType = .rect
+        config.presetFixedRatioType = .canUseMultiplePresetFixedRatio()
+
+        let cropViewController = Mantis.cropViewController(
+            image: image?.normalizedForEditing() ?? UIImage(),
+            config: config
+        )
+        cropViewController.delegate = context.coordinator
+        return cropViewController
+    }
+
+    func updateUIViewController(_ uiViewController: CropViewController, context: Context) {}
+
+    final class Coordinator: NSObject, CropViewControllerDelegate {
+        private let parent: ImageCropper
+
+        init(_ parent: ImageCropper) {
+            self.parent = parent
+        }
+
+        func cropViewControllerDidFailToCrop(_ cropViewController: CropViewController, original: UIImage) {
+            parent.isCropViewShowing = false
+        }
+
+        func cropViewControllerDidCancel(_ cropViewController: CropViewController, original: UIImage) {
+            parent.isCropViewShowing = false
+        }
+
+        func cropViewControllerDidBeginResize(_ cropViewController: CropViewController) {}
+
+        func cropViewControllerDidEndResize(
+            _ cropViewController: CropViewController,
+            original: UIImage,
+            cropInfo: CropInfo
+        ) {}
+
+        func cropViewControllerDidCrop(
+            _ cropViewController: CropViewController,
+            cropped: UIImage,
+            transformation: Transformation,
+            cropInfo: CropInfo
+        ) {
+            parent.image = cropped.normalizedForEditing()
+            parent.isCropViewShowing = false
+        }
+    }
+}
+
+private extension UIImage {
+    func normalizedForEditing() -> UIImage {
+        guard imageOrientation != .up else {
+            return self
+        }
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = scale
+
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+}
+
 
     #Preview {
         ContentView()
